@@ -23,3 +23,4 @@ Requires ffmpeg to be installed.
 
 `-v`                :Overwrite OUTFILE if it already exists, otherwise exit. 
 
+`-f`                :(Optional) path to ffmpeg executable `/example/path/to/ffmpeg` if not included defaults to the windows executable in this repository.

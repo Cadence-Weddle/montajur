@@ -19,6 +19,7 @@ import subprocess
 import os
 
 image_formats = ["jpg", "png", 'jpeg', 'tiff', "nef"]
+ffmpeg_loc = "./ffmpeg-4.4.1-essentials_build/bin/ffmpeg.exe"
 
 
 def get_images(di, formats=image_formats):
@@ -47,7 +48,7 @@ def process_args():
     """returns directory_name, timers_file, timers_ratio, audio_files, audio_lengths, outfile_name, resolution"""
     return
 
-def assemble_audio_cmd(audio_streams):
+def assemble_audio_cmd(audio_streams, ffmpeg_loc):
     af = ''
     temp_audio_file = "_tmp_audio_file.mp3"
     input_list = []
@@ -58,22 +59,22 @@ def assemble_audio_cmd(audio_streams):
         af += "[" + str(n) + ":0]" 
         n+=1
     af += 'concat=n=' + str(n) + ':v=0:a=1[outa]'
-    audio_concat_command = ['C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe']+ input_list+\
+    audio_concat_command = [ffmpeg_loc]+ input_list+\
                                     ["-filter_complex", af, "-map", "[outa]", temp_audio_file]
 
     return audio_concat_command, temp_audio_file
 
-def assemble_slideshow_cmd(outfile, timer_file, overwrite=True, res=('1920','1080'), temp=False):
+def assemble_slideshow_cmd(outfile, timer_file, overwrite=True, res=('1920','1080'), ffmpeg_loc, temp=False):
     pad_c = '\scale=' + res[0] + ':' + res[1] + ':force_original_aspect_ratio=decrease,pad=' + res[0] + ':' + res[1] + ':-1:-1'
     owrte = '-y' if overwrite else '-n' 
     ofile = outfile
     if (temp) ofile = "_" + ofile
-    command = ['C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe', '-f', 'concat', '-safe', '0', '-i', timer_file,
+    command = [ffmpeg_loc, '-f', 'concat', '-safe', '0', '-i', timer_file,
                       '-vsync', 'vfr', '-pix_fmt', 'yuv420p', '-vf', pad_c, owrte, ofile]
     return command, ofile
 
-def assemble_full_cmd(infile, tmp_audio_file):
-    add_audio_command = ['C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe', '-i', "_" + infile, '-i', tmp_audio_file,
+def assemble_full_cmd(infile, tmp_audio_file, ffmpeg_loc):
+    add_audio_command = [ffmpeg_loc, '-i', "_" + infile, '-i', tmp_audio_file,
                     '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-y', infile]
     return add_audio_command
 
@@ -88,6 +89,7 @@ if __name__ == "__main__.py":
     parser.add_argument("-l", action='store_false',help='Print ffmpeg logs while running.')
     parser.add_argument("-r", default='1920x1080', help='resolution in the format 1920x1080. Defaults to 1920x1080')
     parser.add_argument("-v", action='store_true', help='Overwrite any existing files if they are encountered')
+    parser.add_argument("-f", default=ffmpeg_loc, help='Path to ffmpeg.exe')
     
     parser.parse_args()
     
@@ -97,7 +99,7 @@ if __name__ == "__main__.py":
     has_audio = parser.a != None
     has_special_photos = parser.t != None
     duration = parser.d
-    
+    ffmpeg_loc = parser.f
     if has_special_photos: 
         ti = open(parser.t, 'r')
         gibberish = ti.readlines()
@@ -123,13 +125,13 @@ if __name__ == "__main__.py":
     #Run commands
     if(has_audio):
         print("Assembling audio file-----")
-        audio_cmd, tmp_audio_file = assemble_audio_cmd(audio_streams)
+        audio_cmd, tmp_audio_file = assemble_audio_cmd(audio_streams, ffmpeg_loc)
         a = subprocess.run(audio_cmd, capture_output=True)
         if(logging):
               print(a.stderr.decode('utf-8')
         print("Done assembling audio file-----")
     print("Assembling slideshow----")
-    fc, infile = assemble_slideshow_cmd(outfile, timer_file, overwrite, res, temp=has_audio)
+    fc, infile = assemble_slideshow_cmd(outfile, timer_file, overwrite, res, ffmpeg_loc, temp=has_audio)
     f = subprocess.run(fc, capture_output=True)
     if (logging) print(f.stderr.decode('utf-8'))
     print("Done assembling slideshow----")
@@ -137,7 +139,7 @@ if __name__ == "__main__.py":
 
     if (has_audio): 
         print("Combining audio with slideshow-----")
-        aa = assemble_full_cmd(infile, tmp_audio_file)
+        aa = assemble_full_cmd(infile, tmp_audio_file, ffmpeg_loc)
         asa = subprocess.run(aa, capture_output=True)
         if (logging) print(asa.stderr.decode('utf-8')
         print("Final Slideshow assembled---")
